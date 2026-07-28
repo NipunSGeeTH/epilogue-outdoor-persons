@@ -1,27 +1,8 @@
 /**
- * Epilogue 26 — Outside Guest Collector
+ * LEGACY single-file backend (POST-only).
+ * Prefer the folder apps-script/ (Code.gs + Index.html) — form runs inside Google, no CORS.
  *
- * Attach this to your sheet:
- * https://docs.google.com/spreadsheets/d/1FlWneIKvqvsh8XFS69vOB2968t9DEQeOLkqBZ_4_HXI
- *
- * STEPS:
- * 1. Open that Google Sheet
- * 2. Extensions → Apps Script
- * 3. Delete any default code, paste THIS entire file, Save (Ctrl/Cmd+S)
- * 4. Deploy → New deployment
- *      Type: Web app
- *      Execute as: Me
- *      Who has access: Anyone
- * 5. Click Deploy → Authorize → Allow
- * 6. Copy the Web App URL (must end with /exec)
- * 7. Send that URL here, OR:
- *      GitHub repo → Settings → Secrets → Actions
- *      New secret name: GOOGLE_SCRIPT_URL
- *      Value: the /exec URL
- *    then re-run the "Deploy GitHub Pages" workflow
- *
- * Sheet columns (row 1): Timestamp | Student Index | Guest Name | Guest NIC | Guest #
- * Writes to the first tab. Re-deploy after script edits (Manage deployments → Edit → New version).
+ * Quick path: open Sheet → Apps Script → use apps-script/Code.gs and apps-script/Index.html
  */
 
 const MAX_GUESTS = 10;
@@ -34,63 +15,54 @@ const HEADERS = [
 ];
 
 function doGet() {
-  return json_({
-    status: "ok",
-    message: "Epilogue 26 guest collector is running. Use POST to submit.",
+  return HtmlService.createHtmlOutputFromFile("Index")
+    .setTitle("Epilogue 26 — Guest Pass")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+function saveGuests(payload) {
+  const studentIndex = String((payload && payload.studentIndex) || "").trim();
+  const guests = payload && Array.isArray(payload.guests) ? payload.guests : [];
+
+  if (!studentIndex) throw new Error("Student index is required.");
+  if (!guests.length) throw new Error("Add at least one guest.");
+  if (guests.length > MAX_GUESTS) {
+    throw new Error("Maximum " + MAX_GUESTS + " guests allowed.");
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  ensureHeaders_(sheet);
+  const stamp = new Date();
+
+  guests.forEach(function (guest, i) {
+    const name = String((guest && guest.name) || "").trim();
+    const nic = String((guest && guest.nic) || "")
+      .trim()
+      .toUpperCase();
+    if (!name || !nic) throw new Error("Guest " + (i + 1) + " is missing name or NIC.");
+    sheet.appendRow([stamp, studentIndex, name, nic, i + 1]);
   });
+
+  return { status: "ok", count: guests.length };
 }
 
 function doPost(e) {
   try {
-    const raw = e.postData && e.postData.contents;
-    if (!raw) {
-      return json_({ status: "error", message: "Empty request body." });
+    let data;
+    if (e && e.parameter && e.parameter.payload) {
+      data = JSON.parse(e.parameter.payload);
+    } else {
+      data = JSON.parse(e.postData.contents);
     }
-
-    const data = JSON.parse(raw);
-    const studentIndex = String(data.studentIndex || "").trim();
-    const guests = Array.isArray(data.guests) ? data.guests : [];
-
-    if (!studentIndex) {
-      return json_({ status: "error", message: "Student index is required." });
-    }
-    if (!guests.length) {
-      return json_({ status: "error", message: "Add at least one guest." });
-    }
-    if (guests.length > MAX_GUESTS) {
-      return json_({
-        status: "error",
-        message: "Maximum " + MAX_GUESTS + " guests allowed.",
-      });
-    }
-
-    const sheet = getSheet_();
-    const stamp = new Date();
-
-    guests.forEach(function (guest, i) {
-      const name = String((guest && guest.name) || "").trim();
-      const nic = String((guest && guest.nic) || "").trim().toUpperCase();
-      if (!name || !nic) {
-        throw new Error("Guest " + (i + 1) + " is missing name or NIC.");
-      }
-      sheet.appendRow([stamp, studentIndex, name, nic, i + 1]);
-    });
-
-    return json_({
-      status: "ok",
-      message: "Saved " + guests.length + " guest(s).",
-      count: guests.length,
-    });
+    return ContentService.createTextOutput(JSON.stringify(saveGuests(data))).setMimeType(
+      ContentService.MimeType.JSON
+    );
   } catch (err) {
-    return json_({ status: "error", message: String(err.message || err) });
+    return ContentService.createTextOutput(
+      JSON.stringify({ status: "error", message: String(err.message || err) })
+    ).setMimeType(ContentService.MimeType.JSON);
   }
-}
-
-function getSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheets()[0];
-  ensureHeaders_(sheet);
-  return sheet;
 }
 
 function ensureHeaders_(sheet) {
@@ -102,10 +74,4 @@ function ensureHeaders_(sheet) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     sheet.setFrozenRows(1);
   }
-}
-
-function json_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
-    ContentService.MimeType.JSON
-  );
 }
