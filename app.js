@@ -70,9 +70,8 @@
     }));
   }
 
-  function validate(studentIndex, studentName, guests) {
+  function validate(studentIndex, guests) {
     if (!studentIndex) return "Enter your student index number.";
-    if (!studentName) return "Enter your full name.";
     if (!guests.length) return "Add at least one outside guest.";
     if (guests.length > MAX_GUESTS) return `Maximum ${MAX_GUESTS} guests allowed.`;
 
@@ -127,9 +126,8 @@
     clearMessages();
 
     const studentIndex = document.getElementById("student-index").value.trim();
-    const studentName = document.getElementById("student-name").value.trim();
     const guests = collectGuests();
-    const problem = validate(studentIndex, studentName, guests);
+    const problem = validate(studentIndex, guests);
 
     if (problem) {
       showError(problem);
@@ -142,7 +140,6 @@
     try {
       await submitToSheet({
         studentIndex,
-        studentName,
         guests,
       });
 
