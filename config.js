@@ -1,4 +1,5 @@
-/* Paste the full Apps Script Web App URL (must end with /exec). */
+/* Google Apps Script Web App URL */
 window.EPILOGUE_CONFIG = {
-  scriptUrl: "PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE",
+  scriptUrl:
+    "https://script.google.com/macros/s/AKfycbxglAR1Rsq1aEq0obObDhqzJx0zmS27_TfjC0qN5rfVCo1wKTk0EozbbrLXt5RPHOAH/exec",
 };
