@@ -18,14 +18,14 @@
       <header class="hero">
         <p class="hero__eyebrow">University concert</p>
         <h1 class="hero__brand">Epilogue&nbsp;26</h1>
-        <p class="hero__tag">Register outside guests under your student index</p>
+        <p class="hero__tag">Organising committee — record outside guests for a student</p>
       </header>
 
       <main class="sheet">
         <form id="guest-form" novalidate>
           <section class="block" aria-labelledby="student-heading">
-            <h2 id="student-heading" class="block__title">Your details</h2>
-            <p class="block__hint">You are responsible for every guest you add.</p>
+            <h2 id="student-heading" class="block__title">Student</h2>
+            <p class="block__hint">The student is responsible for every guest listed below.</p>
 
             <label class="field">
               <span class="field__label">Student index number</span>
@@ -45,7 +45,7 @@
             <div class="block__head">
               <div>
                 <h2 id="guests-heading" class="block__title">Outside guests</h2>
-                <p class="block__hint">Name + NIC only · max 10</p>
+                <p class="block__hint">Name + NIC only · max 10 per student</p>
               </div>
               <span id="guest-count" class="count-pill" aria-live="polite">1 / 10</span>
             </div>
@@ -62,7 +62,7 @@
           <p id="form-success" class="form-msg form-msg--success" hidden role="status"></p>
 
           <button type="submit" id="submit-btn" class="btn btn--primary">
-            Submit guest list
+            Save guest list
           </button>
         </form>
       </main>

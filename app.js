@@ -153,7 +153,7 @@
       showError(err.message || "Something went wrong. Please try again.");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Submit guest list";
+      submitBtn.textContent = "Save guest list";
     }
   });
 
