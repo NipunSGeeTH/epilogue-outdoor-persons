@@ -1,0 +1,165 @@
+(() => {
+  const MAX_GUESTS = 10;
+  const form = document.getElementById("guest-form");
+  const guestsList = document.getElementById("guests-list");
+  const addBtn = document.getElementById("add-guest");
+  const countEl = document.getElementById("guest-count");
+  const submitBtn = document.getElementById("submit-btn");
+  const errorEl = document.getElementById("form-error");
+  const successEl = document.getElementById("form-success");
+  const template = document.getElementById("guest-row-template");
+
+  function guestCount() {
+    return guestsList.querySelectorAll("[data-guest]").length;
+  }
+
+  function refreshUI() {
+    const n = guestCount();
+    countEl.textContent = `${n} / ${MAX_GUESTS}`;
+    addBtn.disabled = n >= MAX_GUESTS;
+
+    guestsList.querySelectorAll("[data-guest]").forEach((row, i) => {
+      row.querySelector("[data-guest-num]").textContent = String(i + 1);
+      const removeBtn = row.querySelector("[data-remove]");
+      removeBtn.disabled = n <= 1;
+      removeBtn.hidden = n <= 1;
+    });
+  }
+
+  function addGuest() {
+    if (guestCount() >= MAX_GUESTS) return;
+
+    const node = template.content.cloneNode(true);
+    const row = node.querySelector("[data-guest]");
+    row.querySelector("[data-remove]").addEventListener("click", () => {
+      if (guestCount() <= 1) return;
+      row.remove();
+      refreshUI();
+    });
+
+    guestsList.appendChild(node);
+    refreshUI();
+
+    const nameInput = row.querySelector("[data-guest-name]");
+    if (guestCount() > 1) nameInput.focus();
+  }
+
+  function showError(msg) {
+    successEl.hidden = true;
+    errorEl.hidden = false;
+    errorEl.textContent = msg;
+  }
+
+  function showSuccess(msg) {
+    errorEl.hidden = true;
+    successEl.hidden = false;
+    successEl.textContent = msg;
+  }
+
+  function clearMessages() {
+    errorEl.hidden = true;
+    successEl.hidden = true;
+    errorEl.textContent = "";
+    successEl.textContent = "";
+  }
+
+  function collectGuests() {
+    return Array.from(guestsList.querySelectorAll("[data-guest]")).map((row) => ({
+      name: row.querySelector("[data-guest-name]").value.trim(),
+      nic: row.querySelector("[data-guest-nic]").value.trim().toUpperCase(),
+    }));
+  }
+
+  function validate(studentIndex, studentName, guests) {
+    if (!studentIndex) return "Enter your student index number.";
+    if (!studentName) return "Enter your full name.";
+    if (!guests.length) return "Add at least one outside guest.";
+    if (guests.length > MAX_GUESTS) return `Maximum ${MAX_GUESTS} guests allowed.`;
+
+    for (let i = 0; i < guests.length; i++) {
+      const g = guests[i];
+      if (!g.name) return `Enter a name for guest ${i + 1}.`;
+      if (!g.nic) return `Enter a NIC for guest ${i + 1}.`;
+      if (g.nic.length < 5) return `NIC for guest ${i + 1} looks too short.`;
+    }
+
+    const nics = guests.map((g) => g.nic);
+    if (new Set(nics).size !== nics.length) {
+      return "Duplicate NIC numbers found. Each guest needs a unique NIC.";
+    }
+
+    return null;
+  }
+
+  async function submitToSheet(payload) {
+    const url = window.EPILOGUE_CONFIG?.scriptUrl;
+    if (!url || url.includes("PASTE_YOUR_GOOGLE")) {
+      throw new Error(
+        "Google Sheet is not connected yet. Open config.js and paste your Apps Script Web App URL."
+      );
+    }
+
+    const res = await fetch(url, {
+      method: "POST",
+      // text/plain avoids a CORS preflight with Google Apps Script
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+      redirect: "follow",
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Could not read the server response. Check your Apps Script deployment.");
+    }
+
+    if (!res.ok || data.status !== "ok") {
+      throw new Error(data.message || "Submission failed. Please try again.");
+    }
+
+    return data;
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearMessages();
+
+    const studentIndex = document.getElementById("student-index").value.trim();
+    const studentName = document.getElementById("student-name").value.trim();
+    const guests = collectGuests();
+    const problem = validate(studentIndex, studentName, guests);
+
+    if (problem) {
+      showError(problem);
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting…";
+
+    try {
+      await submitToSheet({
+        studentIndex,
+        studentName,
+        guests,
+      });
+
+      showSuccess(
+        `Saved ${guests.length} guest${guests.length === 1 ? "" : "s"} for ${studentIndex}. Thank you!`
+      );
+      form.reset();
+      guestsList.innerHTML = "";
+      addGuest();
+    } catch (err) {
+      showError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit guest list";
+    }
+  });
+
+  addBtn.addEventListener("click", addGuest);
+  addGuest();
+})();

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0c1220" />
+    <title>Epilogue 26 — Guest Pass</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="hero">
+        <p class="hero__eyebrow">University concert</p>
+        <h1 class="hero__brand">Epilogue&nbsp;26</h1>
+        <p class="hero__tag">Register outside guests under your student index</p>
+      </header>
+
+      <main class="sheet">
+        <form id="guest-form" novalidate>
+          <section class="block" aria-labelledby="student-heading">
+            <h2 id="student-heading" class="block__title">Your details</h2>
+            <p class="block__hint">You are responsible for every guest you add.</p>
+
+            <label class="field">
+              <span class="field__label">Student index number</span>
+              <input
+                id="student-index"
+                name="studentIndex"
+                type="text"
+                inputmode="text"
+                autocomplete="off"
+                placeholder="e.g. 21CSE1234"
+                required
+              />
+            </label>
+
+            <label class="field">
+              <span class="field__label">Your full name</span>
+              <input
+                id="student-name"
+                name="studentName"
+                type="text"
+                autocomplete="name"
+                placeholder="As on university records"
+                required
+              />
+            </label>
+          </section>
+
+          <section class="block" aria-labelledby="guests-heading">
+            <div class="block__head">
+              <div>
+                <h2 id="guests-heading" class="block__title">Outside guests</h2>
+                <p class="block__hint">Name + NIC only · max 10</p>
+              </div>
+              <span id="guest-count" class="count-pill" aria-live="polite">1 / 10</span>
+            </div>
+
+            <div id="guests-list" class="guests"></div>
+
+            <button type="button" id="add-guest" class="btn btn--ghost">
+              <span class="btn__icon" aria-hidden="true">+</span>
+              Add another guest
+            </button>
+          </section>
+
+          <p id="form-error" class="form-msg form-msg--error" hidden role="alert"></p>
+          <p id="form-success" class="form-msg form-msg--success" hidden role="status"></p>
+
+          <button type="submit" id="submit-btn" class="btn btn--primary">
+            Submit guest list
+          </button>
+        </form>
+      </main>
+
+      <footer class="foot">
+        <p>One student · up to 10 guests · Epilogue 26</p>
+      </footer>
+    </div>
+
+    <template id="guest-row-template">
+      <div class="guest" data-guest>
+        <div class="guest__top">
+          <span class="guest__label">Guest <span data-guest-num></span></span>
+          <button type="button" class="icon-btn" data-remove title="Remove guest" aria-label="Remove guest">
+            ×
+          </button>
+        </div>
+        <label class="field">
+          <span class="field__label">Full name</span>
+          <input type="text" data-guest-name placeholder="Guest full name" required />
+        </label>
+        <label class="field">
+          <span class="field__label">NIC number</span>
+          <input
+            type="text"
+            data-guest-nic
+            inputmode="text"
+            autocomplete="off"
+            placeholder="e.g. 199912345678 or 991234567V"
+            required
+          />
+        </label>
+      </div>
+    </template>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
