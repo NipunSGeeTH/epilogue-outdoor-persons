@@ -90,39 +90,35 @@
     return null;
   }
 
-  function formatGuests(guests) {
-    return guests.map((g) => `${g.name} | ${g.nic}`).join("\n");
-  }
-
-  function submitToGoogleForm(studentIndex, guests) {
-    const cfg = window.EPILOGUE_CONFIG || {};
-    const action = cfg.formAction;
-    const entryIndex = cfg.entryStudentIndex;
-    const entryGuests = cfg.entryGuests;
-
-    if (
-      !action ||
-      action.includes("PASTE_FORM") ||
-      !entryIndex ||
-      entryIndex.includes("000000") ||
-      !entryGuests ||
-      entryGuests.includes("000000")
-    ) {
+  async function submitToSheet(studentIndex, guests) {
+    const url = window.EPILOGUE_CONFIG?.sheetdbUrl;
+    if (!url || url.includes("PASTE_SHEETDB")) {
       throw new Error(
-        "Form not connected yet. Create a Google Form (2 fields) and paste formAction + entry ids into config.js."
+        "Not connected. Open config.js and paste your SheetDB API URL (sheetdb.io)."
       );
     }
 
-    const body = new FormData();
-    body.append(entryIndex, studentIndex);
-    body.append(entryGuests, formatGuests(guests));
+    const stamp = new Date().toISOString();
+    const rows = guests.map((g, i) => ({
+      Timestamp: stamp,
+      "Student Index": studentIndex,
+      "Guest Name": g.name,
+      "Guest NIC": g.nic,
+      "Guest #": String(i + 1),
+    }));
 
-    // no-cors: Google Forms does not send CORS headers; data still saves
-    return fetch(action, {
+    const res = await fetch(url, {
       method: "POST",
-      mode: "no-cors",
-      body,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: rows }),
     });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || "Could not save to the sheet. Check SheetDB connection.");
+    }
+
+    return res.json().catch(() => ({ ok: true }));
   }
 
   form.addEventListener("submit", async (e) => {
@@ -142,8 +138,7 @@
     submitBtn.textContent = "Saving…";
 
     try {
-      await submitToGoogleForm(studentIndex, guests);
-      // opaque response — assume success if no network throw
+      await submitToSheet(studentIndex, guests);
       showSuccess(
         `Saved ${guests.length} guest${guests.length === 1 ? "" : "s"} for ${studentIndex}.`
       );
