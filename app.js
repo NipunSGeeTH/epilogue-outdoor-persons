@@ -71,7 +71,7 @@
   }
 
   function validate(studentIndex, guests) {
-    if (!studentIndex) return "Enter your student index number.";
+    if (!studentIndex) return "Enter student index number.";
     if (!guests.length) return "Add at least one outside guest.";
     if (guests.length > MAX_GUESTS) return `Maximum ${MAX_GUESTS} guests allowed.`;
 
@@ -90,35 +90,39 @@
     return null;
   }
 
-  async function submitToSheet(payload) {
-    const url = window.EPILOGUE_CONFIG?.scriptUrl;
-    if (!url || url.includes("PASTE_YOUR_GOOGLE")) {
+  function formatGuests(guests) {
+    return guests.map((g) => `${g.name} | ${g.nic}`).join("\n");
+  }
+
+  function submitToGoogleForm(studentIndex, guests) {
+    const cfg = window.EPILOGUE_CONFIG || {};
+    const action = cfg.formAction;
+    const entryIndex = cfg.entryStudentIndex;
+    const entryGuests = cfg.entryGuests;
+
+    if (
+      !action ||
+      action.includes("PASTE_FORM") ||
+      !entryIndex ||
+      entryIndex.includes("000000") ||
+      !entryGuests ||
+      entryGuests.includes("000000")
+    ) {
       throw new Error(
-        "Google Sheet is not connected yet. Open config.js and paste your Apps Script Web App URL."
+        "Form not connected yet. Create a Google Form (2 fields) and paste formAction + entry ids into config.js."
       );
     }
 
-    const res = await fetch(url, {
+    const body = new FormData();
+    body.append(entryIndex, studentIndex);
+    body.append(entryGuests, formatGuests(guests));
+
+    // no-cors: Google Forms does not send CORS headers; data still saves
+    return fetch(action, {
       method: "POST",
-      // text/plain avoids a CORS preflight with Google Apps Script
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-      redirect: "follow",
+      mode: "no-cors",
+      body,
     });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      throw new Error("Could not read the server response. Check your Apps Script deployment.");
-    }
-
-    if (!res.ok || data.status !== "ok") {
-      throw new Error(data.message || "Submission failed. Please try again.");
-    }
-
-    return data;
   }
 
   form.addEventListener("submit", async (e) => {
@@ -135,16 +139,13 @@
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting…";
+    submitBtn.textContent = "Saving…";
 
     try {
-      await submitToSheet({
-        studentIndex,
-        guests,
-      });
-
+      await submitToGoogleForm(studentIndex, guests);
+      // opaque response — assume success if no network throw
       showSuccess(
-        `Saved ${guests.length} guest${guests.length === 1 ? "" : "s"} for ${studentIndex}. Thank you!`
+        `Saved ${guests.length} guest${guests.length === 1 ? "" : "s"} for ${studentIndex}.`
       );
       form.reset();
       guestsList.innerHTML = "";
