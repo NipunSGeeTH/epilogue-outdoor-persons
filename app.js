@@ -90,35 +90,34 @@
     return null;
   }
 
-  async function submitToSheet(studentIndex, guests) {
-    const url = window.EPILOGUE_CONFIG?.sheetdbUrl;
-    if (!url || url.includes("PASTE_SHEETDB")) {
+  async function submitToSheet(payload) {
+    const url = window.EPILOGUE_CONFIG?.scriptUrl;
+    if (!url || url.includes("PASTE_EXEC")) {
+      throw new Error("Not connected. Paste the Apps Script /exec URL into config.js.");
+    }
+
+    // text/plain avoids CORS preflight; Apps Script still receives the JSON body
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+      redirect: "follow",
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
       throw new Error(
-        "Not connected. Open config.js and paste your SheetDB API URL (sheetdb.io)."
+        "Blocked by Google login. Redeploy the web app with Who has access = Anyone (see admin steps)."
       );
     }
 
-    const stamp = new Date().toISOString();
-    const rows = guests.map((g, i) => ({
-      Timestamp: stamp,
-      "Student Index": studentIndex,
-      "Guest Name": g.name,
-      "Guest NIC": g.nic,
-      "Guest #": String(i + 1),
-    }));
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ data: rows }),
-    });
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(text || "Could not save to the sheet. Check SheetDB connection.");
+    if (data.status !== "ok") {
+      throw new Error(data.message || "Save failed.");
     }
-
-    return res.json().catch(() => ({ ok: true }));
+    return data;
   }
 
   form.addEventListener("submit", async (e) => {
@@ -138,7 +137,7 @@
     submitBtn.textContent = "Saving…";
 
     try {
-      await submitToSheet(studentIndex, guests);
+      await submitToSheet({ studentIndex, guests });
       showSuccess(
         `Saved ${guests.length} guest${guests.length === 1 ? "" : "s"} for ${studentIndex}.`
       );

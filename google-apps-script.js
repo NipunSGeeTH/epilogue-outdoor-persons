@@ -1,8 +1,16 @@
 /**
- * LEGACY single-file backend (POST-only).
- * Prefer the folder apps-script/ (Code.gs + Index.html) — form runs inside Google, no CORS.
+ * Epilogue 26 — paste into Sheet → Extensions → Apps Script (Code.gs)
  *
- * Quick path: open Sheet → Apps Script → use apps-script/Code.gs and apps-script/Index.html
+ * ADMIN (you) must allow public web apps first — see ADMIN.md / chat instructions.
+ *
+ * Deploy:
+ *   Deploy → New deployment → Web app
+ *   Execute as: Me
+ *   Who has access: Anyone          ← NOT "Anyone at moraspirit.com"
+ * Copy the /exec URL into config.js
+ *
+ * Good URL:  https://script.google.com/macros/s/XXXX/exec
+ * Bad URL:   https://script.google.com/a/macros/moraspirit.com/s/XXXX/exec  (login wall)
  */
 
 const MAX_GUESTS = 10;
@@ -15,63 +23,59 @@ const HEADERS = [
 ];
 
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile("Index")
-    .setTitle("Epilogue 26 — Guest Pass")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag("viewport", "width=device-width, initial-scale=1");
-}
-
-function saveGuests(payload) {
-  const studentIndex = String((payload && payload.studentIndex) || "").trim();
-  const guests = payload && Array.isArray(payload.guests) ? payload.guests : [];
-
-  if (!studentIndex) throw new Error("Student index is required.");
-  if (!guests.length) throw new Error("Add at least one guest.");
-  if (guests.length > MAX_GUESTS) {
-    throw new Error("Maximum " + MAX_GUESTS + " guests allowed.");
-  }
-
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  ensureHeaders_(sheet);
-  const stamp = new Date();
-
-  guests.forEach(function (guest, i) {
-    const name = String((guest && guest.name) || "").trim();
-    const nic = String((guest && guest.nic) || "")
-      .trim()
-      .toUpperCase();
-    if (!name || !nic) throw new Error("Guest " + (i + 1) + " is missing name or NIC.");
-    sheet.appendRow([stamp, studentIndex, name, nic, i + 1]);
-  });
-
-  return { status: "ok", count: guests.length };
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "ok", message: "Epilogue guest API. POST JSON to save." })
+  ).setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
   try {
-    let data;
-    if (e && e.parameter && e.parameter.payload) {
-      data = JSON.parse(e.parameter.payload);
-    } else {
-      data = JSON.parse(e.postData.contents);
+    const raw = e.postData && e.postData.contents;
+    if (!raw) {
+      return json_({ status: "error", message: "Empty body." });
     }
-    return ContentService.createTextOutput(JSON.stringify(saveGuests(data))).setMimeType(
-      ContentService.MimeType.JSON
-    );
+    const data = JSON.parse(raw);
+    const studentIndex = String(data.studentIndex || "").trim();
+    const guests = Array.isArray(data.guests) ? data.guests : [];
+
+    if (!studentIndex) return json_({ status: "error", message: "Student index required." });
+    if (!guests.length) return json_({ status: "error", message: "Add at least one guest." });
+    if (guests.length > MAX_GUESTS) {
+      return json_({ status: "error", message: "Max " + MAX_GUESTS + " guests." });
+    }
+
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    ensureHeaders_(sheet);
+    const stamp = new Date();
+
+    guests.forEach(function (guest, i) {
+      const name = String((guest && guest.name) || "").trim();
+      const nic = String((guest && guest.nic) || "")
+        .trim()
+        .toUpperCase();
+      if (!name || !nic) throw new Error("Guest " + (i + 1) + " missing name or NIC.");
+      sheet.appendRow([stamp, studentIndex, name, nic, i + 1]);
+    });
+
+    return json_({ status: "ok", count: guests.length });
   } catch (err) {
-    return ContentService.createTextOutput(
-      JSON.stringify({ status: "error", message: String(err.message || err) })
-    ).setMimeType(ContentService.MimeType.JSON);
+    return json_({ status: "error", message: String(err.message || err) });
   }
 }
 
 function ensureHeaders_(sheet) {
-  const firstRow = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  const empty = firstRow.every(function (cell) {
-    return cell === "" || cell === null;
+  const row = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
+  const empty = row.every(function (c) {
+    return c === "" || c === null;
   });
   if (empty) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
     sheet.setFrozenRows(1);
   }
+}
+
+function json_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
+    ContentService.MimeType.JSON
+  );
 }
